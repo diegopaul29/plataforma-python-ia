@@ -44,26 +44,23 @@ def ejecutar_codigo(req: CodigoRequest):
         output = run_data.get("output", "").strip()
         stderr = run_data.get("stderr", "").strip()
 
+        # Se considera error solo si Piston retorna código de salida distinto de 0 o mensajes explicitos de error
         hay_error = (
             bool(stderr)
             or "Traceback" in output
-            or "Error:" in output
             or "SyntaxError" in output
+            or "NameError" in output
+            or "TypeError" in output
         )
 
-        if hay_error or not output:
+        if hay_error:
             mensaje_error = stderr if stderr else output
-            if not mensaje_error:
-                mensaje_error = (
-                    "El código no produjo ninguna salida ni imprimió nada en consola."
-                )
 
             prompt = (
                 f"Eres un profesor de Python para principiantes. El alumno escribió este código:\n"
                 f"```python\n{req.codigo}\n```\n"
-                f"Y el resultado/error de ejecución fue:\n{mensaje_error}\n\n"
-                f"Explícale en español, de forma muy sencilla y amable, dónde está el error en su código "
-                f"(o indícale qué debe escribir si no ha completado el ejercicio) y cómo solucionarlo."
+                f"Y ocurrió el siguiente error:\n{mensaje_error}\n\n"
+                f"Explícale en español, de forma muy sencilla y breve, cuál es el error y cómo solucionarlo."
             )
 
             try:
@@ -72,18 +69,23 @@ def ejecutar_codigo(req: CodigoRequest):
                 )
                 explicacion = ai_res.text
             except Exception as ex_ia:
-                explicacion = (
-                    f"No se pudo consultar al Tutor IA (Verifica tu API Key). Detalle: {str(ex_ia)}"
-                )
+                explicacion = f"Error al consultar la IA: {str(ex_ia)}"
 
             return {
                 "exito": False,
-                "salida": output if output else "Sin salida de consola",
+                "salida": output,
                 "error": mensaje_error,
                 "explicacion_ia": explicacion,
             }
 
-        return {"exito": True, "salida": output, "explicacion_ia": None}
+        # Si no hubo errores, retornar éxito directo sin llamar a la IA
+        mensaje_exito = "¡Excelente trabajo! Tu código se ejecutó correctamente."
+        return {
+            "exito": True,
+            "salida": output if output else "Ejecutado sin salida de texto.",
+            "mensaje": mensaje_exito,
+            "explicacion_ia": None,
+        }
 
     except Exception as e:
         return {
