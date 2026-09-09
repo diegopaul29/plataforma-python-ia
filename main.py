@@ -20,7 +20,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "TU_API_KEY_DE_GEMINI_AQUI")
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 
-# Servir la interfaz del frontend (index.html) en la raiz
 @app.get("/")
 def leer_index():
     return FileResponse("index.html")
@@ -38,28 +37,59 @@ def ejecutar_codigo(req: CodigoRequest):
         "version": "3.10.0",
         "files": [{"content": req.codigo}],
     }
+
     try:
         res = requests.post(piston_url, json=payload, timeout=10).json()
         run_data = res.get("run", {})
-        output = run_data.get("output", "")
-        stderr = run_data.get("stderr", "")
+        output = run_data.get("output", "").strip()
+        stderr = run_data.get("stderr", "").strip()
 
-        if stderr:
+        # Detección de errores en Python (SyntaxError, NameError, etc.)
+        hay_error = (
+            bool(stderr)
+            or "Traceback" in output
+            or "Error:" in output
+            or "SyntaxError" in output
+        )
+
+        # Si hay un error explícito o la salida está totalmente vacía
+        if hay_error or not output:
+            mensaje_error = stderr if stderr else output
+            if not mensaje_error:
+                mensaje_error = (
+                    "El código no produjo ninguna salida ni imprimió nada en consola."
+                )
+
             prompt = (
-                f"Eres un profesor de Python. Analiza este codigo: {req.codigo} "
-                f"y este error: {stderr}. Indica el numero de linea exacto y la explicacion."
+                f"Eres un profesor de Python para principiantes. El alumno escribió este código:\n"
+                f"```python\n{req.codigo}\n```\n"
+                f"Y el resultado/error de ejecución fue:\n{mensaje_error}\n\n"
+                f"Explícale en español, de forma muy sencilla y amable, dónde está el error en su código "
+                f"(o indícale qué debe escribir si no ha completado el ejercicio) y cómo solucionarlo."
             )
-            ai_res = ai_client.models.generate_content(
-                model="gemini-2.5-flash", contents=prompt
-            )
+
+            try:
+                ai_res = ai_client.models.generate_content(
+                    model="gemini-2.5-flash", contents=prompt
+                )
+                explicacion = ai_res.text
+            except Exception as ex_ia:
+                explicacion = (
+                    f"No se pudo consultar al Tutor IA (Verifica tu API Key). Detalle: {str(ex_ia)}"
+                )
+
             return {
                 "exito": False,
-                "salida": output,
-                "error": stderr,
-                "explicacion_ia": ai_res.text,
+                "salida": output if output else "Sin salida de consola",
+                "error": mensaje_error,
+                "explicacion_ia": explicacion,
             }
 
         return {"exito": True, "salida": output, "explicacion_ia": None}
 
     except Exception as e:
-        return {"exito": False, "salida": "Error", "explicacion_ia": str(e)}
+        return {
+            "exito": False,
+            "salida": "Error de servidor",
+            "explicacion_ia": f"Ocurrió un problema en el backend: {str(e)}",
+        }
