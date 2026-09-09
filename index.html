@@ -1,117 +1,115 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Aprende Python 100% Nube</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: sans-serif; display: flex; height: 100vh; background: #1e1e1e; color:
-#fff; }
-#sidebar { width: 300px; background: #252526; border-right: 1px solid #3c3c3c; padding:
-15px; overflow-y: auto; }
-.item { padding: 10px; margin-bottom: 6px; background: #2d2d2d; border-radius: 4px; cursor:
-pointer; font-size: 13px; }
-.item:hover, .item.active { background: #007acc; }
-#main { flex: 1; display: flex; flex-direction: column; }
-
-#bar { height: 45px; background: #2d2d2d; display: flex; align-items: center; justify-
-content: space-between; padding: 0 15px; }
-
-#btn { background: #28a745; color: white; border: none; padding: 8px 16px; font-weight:
-bold; border-radius: 4px; cursor: pointer; }
-#editor { flex: 2; }
-
-#output { flex: 1; background: #111; padding: 15px; border-top: 2px solid #3c3c3c; overflow-
-y: auto; font-family: monospace; }
-
-.ia-box { background: #3b1818; border-left: 4px solid #f44336; padding: 10px; margin-top:
-10px; border-radius: 4px; font-family: sans-serif; }
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/
-loader.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aprende Python 100% Nube</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; display: flex; height: 100vh; background: #1e1e1e; color: #fff; }
+        #sidebar { width: 300px; background: #252526; border-right: 1px solid #3c3c3c; padding: 15px; overflow-y: auto; }
+        .item { padding: 10px; margin-bottom: 6px; background: #2d2d2d; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .item:hover, .item.active { background: #007acc; }
+        #main { flex: 1; display: flex; flex-direction: column; }
+        #bar { height: 45px; background: #2d2d2d; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; }
+        #btn { background: #28a745; color: white; border: none; padding: 8px 16px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+        #editor { flex: 2; }
+        #output { flex: 1; background: #111; padding: 15px; border-top: 2px solid #3c3c3c; overflow-y: auto; font-family: monospace; }
+        .ia-box { background: #3b1818; border-left: 4px solid #f44336; padding: 10px; margin-top: 10px; border-radius: 4px; font-family: sans-serif; white-space: pre-line; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
 </head>
 <body>
-<div id="sidebar"><h3 style="margin-bottom:10px; color:#4ec9b0;">30 Ejercicios IF</h3><div
-id="lista"></div></div>
-<div id="main">
-<div id="bar"><span id="title" style="font-weight:bold;"></span><button id="btn"
-onclick="ejecutar()">▶ Ejecutar</button></div>
-<div id="editor"></div>
-<div id="output">
-<strong>Consola:</strong>
-<pre id="consola" style="color:#aaa; margin-top:5px;"></pre>
-<div id="ia"></div>
-</div>
-</div>
-<script>
-const ejercicios = [
-{ id: 1, t: "1. Número Positivo (if)", code: "# Ejercicio 1: Verifica si numero es mayor a
-0
-numero = 10
-if numero > 0:
-print('Es positivo')" },
-{ id: 11, t: "11. Par o Impar (if-else)", code: "# Ejercicio 11: Par o Impar
-numero = 7
-if numero % 2 == 0:
-print('Par')
-else:
-print('Impar')" },
-{ id: 21, t: "21. Mayor de 3 (if anidado)", code: "# Ejercicio 21: Anidado
-a = 10
-b = 20
-if a > 0:
-if b > a:
-print('B es mayor positivo')" }
-];
-let editor;
-let urlBackend = "https://TU-SERVIDOR-RENDER.onrender.com/ejecutar";
-require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/
-0.38.0/min/vs' }});
-require(['vs/editor/editor.main'], function() {
-editor = monaco.editor.create(document.getElementById('editor'), {
-value: ejercicios[0].code,
-language: 'python',
-theme: 'vs-dark',
-lineNumbers: 'on',
-automaticLayout: true
-});
-});
-const listContainer = document.getElementById('lista');
-ejercicios.forEach((ej, index) => {
-const d = document.createElement('div');
-d.className = `item ${index === 0 ? 'active' : ''}`;
-d.innerText = ej.t;
-d.onclick = () => {
-document.querySelectorAll('.item').forEach(i => i.classList.remove('active'));
-d.classList.add('active');
-document.getElementById('title').innerText = ej.t;
-editor.setValue(ej.code);
-};
-listContainer.appendChild(d);
-});
-document.getElementById('title').innerText = ejercicios[0].t;
-async function ejecutar() {
-const consoleEl = document.getElementById('consola');
-const iaEl = document.getElementById('ia');
-consoleEl.innerText = "Ejecutando en la nube...";
-iaEl.innerHTML = "";
-try {
-const res = await fetch(urlBackend, {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({ codigo: editor.getValue() })
-});
-const data = await res.json();
-consoleEl.innerText = data.salida || (data.error ? "Error de Sintaxis" : "Sin salida");
-if(!data.exito && data.explicacion_ia) {
-iaEl.innerHTML = `<div class="ia-box"><strong> Tutor IA:</strong><br>$
-{data.explicacion_ia.replace(/
-/g, '<br>')}</div>`;
-}
-} catch(e) {
-consoleEl.innerText = "Error conectando al servidor backend nube.";
-}
-}
-</script>
+    <div id="sidebar">
+        <h3 style="margin-bottom:10px; color:#4ec9b0;">30 Ejercicios IF</h3>
+        <div id="lista"></div>
+    </div>
+    <div id="main">
+        <div id="bar">
+            <span id="title" style="font-weight:bold;"></span>
+            <button id="btn" onclick="ejecutar()">▶ Ejecutar</button>
+        </div>
+        <div id="editor"></div>
+        <div id="output">
+            <strong>Consola:</strong>
+            <pre id="consola" style="color:#aaa; margin-top:5px;"></pre>
+            <div id="ia"></div>
+        </div>
+    </div>
+
+    <script>
+        const ejercicios = [
+            { 
+                id: 1, 
+                t: "1. Número Positivo (if)", 
+                code: "# Ejercicio 1: Verifica si numero es mayor a 0\nnumero = 10\nif numero > 0:\n    print('Es positivo')" 
+            },
+            { 
+                id: 11, 
+                t: "11. Par o Impar (if-else)", 
+                code: "# Ejercicio 11: Par o Impar\nnumero = 7\nif numero % 2 == 0:\n    print('Par')\nelse:\n    print('Impar')" 
+            },
+            { 
+                id: 21, 
+                t: "21. Mayor de 3 (if anidado)", 
+                code: "# Ejercicio 21: Anidado\na = 10\nb = 20\nif a > 0:\n    if b > a:\n        print('B es mayor positivo')" 
+            }
+        ];
+
+        let editor;
+        // Al usar "/ejecutar", toma automáticamente el mismo dominio donde esté desplegado
+        const urlBackend = "/ejecutar";
+
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                value: ejercicios[0].code,
+                language: 'python',
+                theme: 'vs-dark',
+                lineNumbers: 'on',
+                automaticLayout: true
+            });
+        });
+
+        const listContainer = document.getElementById('lista');
+        ejercicios.forEach((ej, index) => {
+            const d = document.createElement('div');
+            d.className = `item ${index === 0 ? 'active' : ''}`;
+            d.innerText = ej.t;
+            d.onclick = () => {
+                document.querySelectorAll('.item').forEach(i => i.classList.remove('active'));
+                d.classList.add('active');
+                document.getElementById('title').innerText = ej.t;
+                editor.setValue(ej.code);
+            };
+            listContainer.appendChild(d);
+        });
+
+        document.getElementById('title').innerText = ejercicios[0].t;
+
+        async function ejecutar() {
+            const consoleEl = document.getElementById('consola');
+            const iaEl = document.getElementById('ia');
+            consoleEl.innerText = "Ejecutando en la nube...";
+            iaEl.innerHTML = "";
+
+            try {
+                const res = await fetch(urlBackend, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ codigo: editor.getValue() })
+                });
+
+                const data = await res.json();
+                consoleEl.innerText = data.salida || (data.error ? data.error : "Sin salida");
+
+                if (!data.exito && data.explicacion_ia) {
+                    iaEl.innerHTML = `<div class="ia-box"><strong>🤖 Tutor IA:</strong><br>${data.explicacion_ia}</div>`;
+                }
+            } catch (e) {
+                consoleEl.innerText = "Error conectando al servidor backend nube.";
+            }
+        }
+    </script>
 </body>
 </html>

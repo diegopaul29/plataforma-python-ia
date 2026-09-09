@@ -2,6 +2,7 @@ import os
 import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from google import genai
 
@@ -15,9 +16,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Se recomienda usar variable de entorno en Render para proteger la API key
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "TU_API_KEY_DE_GEMINI_AQUI")
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
+
+
+# Servir la interfaz del frontend (index.html) en la raiz
+@app.get("/")
+def leer_index():
+    return FileResponse("index.html")
 
 
 class CodigoRequest(BaseModel):
