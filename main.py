@@ -16,7 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "TU_API_KEY_DE_GEMINI_AQUI")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 
@@ -44,7 +44,6 @@ def ejecutar_codigo(req: CodigoRequest):
         output = run_data.get("output", "").strip()
         stderr = run_data.get("stderr", "").strip()
 
-        # Detección de errores en Python (SyntaxError, NameError, etc.)
         hay_error = (
             bool(stderr)
             or "Traceback" in output
@@ -52,7 +51,6 @@ def ejecutar_codigo(req: CodigoRequest):
             or "SyntaxError" in output
         )
 
-        # Si hay un error explícito o la salida está totalmente vacía
         if hay_error or not output:
             mensaje_error = stderr if stderr else output
             if not mensaje_error:
@@ -70,7 +68,7 @@ def ejecutar_codigo(req: CodigoRequest):
 
             try:
                 ai_res = ai_client.models.generate_content(
-                    model="gemini-2.5-flash", contents=prompt
+                    model="gemini-3.6-flash", contents=prompt
                 )
                 explicacion = ai_res.text
             except Exception as ex_ia:
