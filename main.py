@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-ai_client = genai.Client(api_key=GEMINI_API_KEY)
+ai_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 
 @app.get("/")
@@ -29,25 +29,26 @@ class CodigoRequest(BaseModel):
     codigo: str
 
 
-def limpiar_codigo_python(raw_code: str) -> str:
+def sanitizar_codigo(codigo_raw: str) -> str:
     """
-    Reemplaza espacios invisibles/NBSP (\xa0) por espacios normales (\x20)
-    y normaliza saltos de línea para evitar errores de sangría en Python.
+    Limpia el código proveniente de Monaco Editor:
+    - Reemplaza Non-Breaking Spaces (\xa0) y caracteres nulos por espacios normales.
+    - Normaliza saltos de línea (\r\n -> \n).
+    - Convierte pestañas (tabs) en 4 espacios para evitar TabError/IndentationError.
     """
-    if not raw_code:
+    if not codigo_raw:
         return ""
-    # Convertir caracteres de espacio no separable (NBSP) a espacio estándar
-    codigo_limpio = raw_code.replace("\xa0", " ").replace("\r\n", "\n")
-    return codigo_limpio
+    codigo = codigo_raw.replace("\xa0", " ").replace("\x00", "").replace("\r\n", "\n")
+    codigo = codigo.replace("\t", "    ")
+    return codigo
 
 
 @app.post("/ejecutar")
 def ejecutar_codigo(req: CodigoRequest):
-    # 1. Normalizar y sanitizar el código de caracteres invisibles del editor
-    codigo_sanitizado = limpiar_codigo_python(req.codigo)
-    codigo_trim = codigo_sanitizado.strip()
+    codigo_limpio = sanitizar_codigo(req.codigo)
+    codigo_trim = codigo_limpio.strip()
 
-    # CASO 1: Código vacío
+    # 1. CASO: El usuario no escribió código o mandó solo espacios/comentarios
     if not codigo_trim:
         return {
             "exito": False,
@@ -60,85 +61,79 @@ def ejecutar_codigo(req: CodigoRequest):
     payload = {
         "language": "python",
         "version": "3.10.0",
-        "files": [{"content": codigo_sanitizado}],
+        "files": [{"content": codigo_limpio}],
     }
 
     try:
         res = requests.post(piston_url, json=payload, timeout=10).json()
         run_data = res.get("run", {})
-        output = run_data.get("output", "").strip()
+        stdout = run_data.get("stdout", "").strip()
         stderr = run_data.get("stderr", "").strip()
+        output = run_data.get("output", "").strip()
         exit_code = run_data.get("code", 0)
 
-        # Determinar si la ejecución falló realmente
-        errores_conocidos = [
+        # Determinar si ocurrió un error real de compilación o ejecución en Python
+        errores_python = [
             "SyntaxError",
             "IndentationError",
             "NameError",
             "TypeError",
             "TabError",
+            "ValueError",
+            "AttributeError",
             "Traceback",
         ]
-        tiene_error_sintaxis = exit_code != 0 or any(
-            err in stderr or err in output for err in errores_conocidos
-        )
 
-        # CASO 2: Hay un error explícito en Python
-        if tiene_error_sintaxis:
+        es_error = exit_code != 0 or bool(stderr) or any(err in output for err in errores_python)
+
+        # 2. CASO: Error de ejecución o sintaxis real -> Llamar a la IA para explicar la falla
+        if es_error:
             detalle_error = stderr if stderr else output
-            prompt = (
-                f"Eres un tutor amigable de Python para principiantes.\n"
-                f"El alumno escribió el siguiente código:\n```python\n{codigo_sanitizado}\n```\n\n"
-                f"Ocurrió este error al ejecutarlo:\n{detalle_error}\n\n"
-                f"Explica brevemente y de forma sencilla qué falló y cómo solucionarlo sin dar la respuesta completa directamente."
-            )
-            try:
-                ai_res = ai_client.models.generate_content(
-                    model="gemini-3.6-flash", contents=prompt
+            
+            explicacion = "Se detectó un error en tu código."
+            if ai_client:
+                prompt = (
+                    f"Eres un tutor de Python amigable para estudiantes de programación.\n"
+                    f"El alumno escribió el siguiente código:\n```python\n{codigo_limpio}\n```\n\n"
+                    f"La consola arrojó este error:\n{detalle_error}\n\n"
+                    f"Explícale en español, de forma muy concisa y clara, EXACTAMENTE en qué línea o parte "
+                    f"está el error y cómo puede corregirlo."
                 )
-                explicacion = ai_res.text
-            except Exception as ex_ia:
-                explicacion = f"Error al consultar la IA: {str(ex_ia)}"
+                try:
+                    ai_res = ai_client.models.generate_content(
+                        model="gemini-3.6-flash", contents=prompt
+                    )
+                    explicacion = ai_res.text
+                except Exception as ex_ia:
+                    explicacion = f"Error al consultar la IA: {str(ex_ia)}"
 
             return {
                 "exito": False,
-                "salida": output if output else stderr,
+                "salida": detalle_error,
                 "error": detalle_error,
                 "explicacion_ia": explicacion,
             }
 
-        # CASO 3: Se ejecutó sin error pero no produjo ninguna salida por consola (print)
-        if not output:
-            prompt = (
-                f"El alumno ejecutó este código en Python:\n```python\n{codigo_sanitizado}\n```\n"
-                f"El código no dio ningún error pero tampoco imprimió nada en pantalla.\n"
-                f"Explícale amablemente que debe usar la función print() o revisar la condición para ver salida en consola."
-            )
-            try:
-                ai_res = ai_client.models.generate_content(
-                    model="gemini-3.6-flash", contents=prompt
-                )
-                explicacion = ai_res.text
-            except Exception as ex_ia:
-                explicacion = f"Error al consultar la IA: {str(ex_ia)}"
-
+        # 3. CASO: Ejecución correcta con salida en consola (print)
+        if stdout or output:
             return {
-                "exito": False,
-                "salida": "Sin salida de pantalla.",
-                "explicacion_ia": explicacion,
+                "exito": True,
+                "salida": stdout if stdout else output,
+                "mensaje": "¡Excelente trabajo! Tu código se ejecutó correctamente.",
+                "explicacion_ia": None,
             }
 
-        # CASO 4: ¡Éxito! Imprimiendo salida correcta
+        # 4. CASO: El código no tiene errores pero tampoco usó print()
         return {
             "exito": True,
-            "salida": output,
-            "mensaje": "¡Excelente trabajo! Tu código se ejecutó correctamente.",
+            "salida": "(El código se ejecutó con éxito pero no generó texto en pantalla)",
+            "mensaje": "¡El código es válido! Recuerda agregar un print() para ver resultados.",
             "explicacion_ia": None,
         }
 
     except Exception as e:
         return {
             "exito": False,
-            "salida": "Error de conexión",
-            "explicacion_ia": f"Ocurrió un problema de red o servidor: {str(e)}",
+            "salida": "Error de servidor",
+            "explicacion_ia": f"No se pudo conectar al ejecutor de código: {str(e)}",
         }
