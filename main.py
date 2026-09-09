@@ -29,12 +29,26 @@ class CodigoRequest(BaseModel):
     codigo: str
 
 
+def limpiar_codigo_python(raw_code: str) -> str:
+    """
+    Reemplaza espacios invisibles/NBSP (\xa0) por espacios normales (\x20)
+    y normaliza saltos de línea para evitar errores de sangría en Python.
+    """
+    if not raw_code:
+        return ""
+    # Convertir caracteres de espacio no separable (NBSP) a espacio estándar
+    codigo_limpio = raw_code.replace("\xa0", " ").replace("\r\n", "\n")
+    return codigo_limpio
+
+
 @app.post("/ejecutar")
 def ejecutar_codigo(req: CodigoRequest):
-    codigo_limpio = req.codigo.strip()
+    # 1. Normalizar y sanitizar el código de caracteres invisibles del editor
+    codigo_sanitizado = limpiar_codigo_python(req.codigo)
+    codigo_trim = codigo_sanitizado.strip()
 
-    # CASO 1: El usuario no escribió nada o mandó el editor vacío
-    if not codigo_limpio:
+    # CASO 1: Código vacío
+    if not codigo_trim:
         return {
             "exito": False,
             "salida": "Advertencia: No hay código para ejecutar.",
@@ -46,7 +60,7 @@ def ejecutar_codigo(req: CodigoRequest):
     payload = {
         "language": "python",
         "version": "3.10.0",
-        "files": [{"content": req.codigo}],
+        "files": [{"content": codigo_sanitizado}],
     }
 
     try:
@@ -56,34 +70,28 @@ def ejecutar_codigo(req: CodigoRequest):
         stderr = run_data.get("stderr", "").strip()
         exit_code = run_data.get("code", 0)
 
-        # CASO 2: Ocurrió un error de ejecución/sintaxis O no se imprimió ninguna salida
-        hay_error = (
-            exit_code != 0
-            or bool(stderr)
-            or "Traceback" in output
-            or "SyntaxError" in output
-            or "NameError" in output
-            or "TypeError" in output
-            or "IndentationError" in output
-            or not output  # Si no hay print, se considera incompleto y la IA le ayuda
+        # Determinar si la ejecución falló realmente
+        errores_conocidos = [
+            "SyntaxError",
+            "IndentationError",
+            "NameError",
+            "TypeError",
+            "TabError",
+            "Traceback",
+        ]
+        tiene_error_sintaxis = exit_code != 0 or any(
+            err in stderr or err in output for err in errores_conocidos
         )
 
-        if hay_error:
-            # Construir el detalle del problema para que la IA dé una respuesta precisa
-            if not output and not stderr:
-                detalle_problema = "El código se ejecutó pero no imprimió ningún texto en consola. Falta usar la función print() o la condición del 'if' no se cumplió."
-            else:
-                detalle_problema = stderr if stderr else output
-
+        # CASO 2: Hay un error explícito en Python
+        if tiene_error_sintaxis:
+            detalle_error = stderr if stderr else output
             prompt = (
-                f"Eres un profesor de Python paciente y amigable para principiantes.\n"
-                f"El alumno intentó resolver un ejercicio con este código:\n"
-                f"```python\n{req.codigo}\n```\n\n"
-                f"El problema o mensaje del sistema fue:\n{detalle_problema}\n\n"
-                f"Por favor, explica en español, de forma muy sencilla, concisa y clara, "
-                f"en dónde está el error en su código y cómo puede solucionarlo."
+                f"Eres un tutor amigable de Python para principiantes.\n"
+                f"El alumno escribió el siguiente código:\n```python\n{codigo_sanitizado}\n```\n\n"
+                f"Ocurrió este error al ejecutarlo:\n{detalle_error}\n\n"
+                f"Explica brevemente y de forma sencilla qué falló y cómo solucionarlo sin dar la respuesta completa directamente."
             )
-
             try:
                 ai_res = ai_client.models.generate_content(
                     model="gemini-3.6-flash", contents=prompt
@@ -94,12 +102,33 @@ def ejecutar_codigo(req: CodigoRequest):
 
             return {
                 "exito": False,
-                "salida": output if output else "Sin salida de pantalla.",
-                "error": detalle_problema,
+                "salida": output if output else stderr,
+                "error": detalle_error,
                 "explicacion_ia": explicacion,
             }
 
-        # CASO 3: El código está bien y generó salida correctamente
+        # CASO 3: Se ejecutó sin error pero no produjo ninguna salida por consola (print)
+        if not output:
+            prompt = (
+                f"El alumno ejecutó este código en Python:\n```python\n{codigo_sanitizado}\n```\n"
+                f"El código no dio ningún error pero tampoco imprimió nada en pantalla.\n"
+                f"Explícale amablemente que debe usar la función print() o revisar la condición para ver salida en consola."
+            )
+            try:
+                ai_res = ai_client.models.generate_content(
+                    model="gemini-3.6-flash", contents=prompt
+                )
+                explicacion = ai_res.text
+            except Exception as ex_ia:
+                explicacion = f"Error al consultar la IA: {str(ex_ia)}"
+
+            return {
+                "exito": False,
+                "salida": "Sin salida de pantalla.",
+                "explicacion_ia": explicacion,
+            }
+
+        # CASO 4: ¡Éxito! Imprimiendo salida correcta
         return {
             "exito": True,
             "salida": output,
@@ -111,5 +140,5 @@ def ejecutar_codigo(req: CodigoRequest):
         return {
             "exito": False,
             "salida": "Error de conexión",
-            "explicacion_ia": f"Ocurrió un problema en el servidor: {str(e)}",
+            "explicacion_ia": f"Ocurrió un problema de red o servidor: {str(e)}",
         }
