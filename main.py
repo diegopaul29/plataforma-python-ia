@@ -31,6 +31,17 @@ class CodigoRequest(BaseModel):
 
 @app.post("/ejecutar")
 def ejecutar_codigo(req: CodigoRequest):
+    codigo_limpio = req.codigo.strip()
+
+    # CASO 1: El usuario no escribió nada o mandó el editor vacío
+    if not codigo_limpio:
+        return {
+            "exito": False,
+            "salida": "Advertencia: No hay código para ejecutar.",
+            "mensaje_alerta": "Por favor, ingrese el código solicitado antes de ejecutar.",
+            "explicacion_ia": None,
+        }
+
     piston_url = "https://emkc.org/api/v2/piston/execute"
     payload = {
         "language": "python",
@@ -43,24 +54,34 @@ def ejecutar_codigo(req: CodigoRequest):
         run_data = res.get("run", {})
         output = run_data.get("output", "").strip()
         stderr = run_data.get("stderr", "").strip()
+        exit_code = run_data.get("code", 0)
 
-        # Se considera error solo si Piston retorna código de salida distinto de 0 o mensajes explicitos de error
+        # CASO 2: Ocurrió un error de ejecución/sintaxis O no se imprimió ninguna salida
         hay_error = (
-            bool(stderr)
+            exit_code != 0
+            or bool(stderr)
             or "Traceback" in output
             or "SyntaxError" in output
             or "NameError" in output
             or "TypeError" in output
+            or "IndentationError" in output
+            or not output  # Si no hay print, se considera incompleto y la IA le ayuda
         )
 
         if hay_error:
-            mensaje_error = stderr if stderr else output
+            # Construir el detalle del problema para que la IA dé una respuesta precisa
+            if not output and not stderr:
+                detalle_problema = "El código se ejecutó pero no imprimió ningún texto en consola. Falta usar la función print() o la condición del 'if' no se cumplió."
+            else:
+                detalle_problema = stderr if stderr else output
 
             prompt = (
-                f"Eres un profesor de Python para principiantes. El alumno escribió este código:\n"
-                f"```python\n{req.codigo}\n```\n"
-                f"Y ocurrió el siguiente error:\n{mensaje_error}\n\n"
-                f"Explícale en español, de forma muy sencilla y breve, cuál es el error y cómo solucionarlo."
+                f"Eres un profesor de Python paciente y amigable para principiantes.\n"
+                f"El alumno intentó resolver un ejercicio con este código:\n"
+                f"```python\n{req.codigo}\n```\n\n"
+                f"El problema o mensaje del sistema fue:\n{detalle_problema}\n\n"
+                f"Por favor, explica en español, de forma muy sencilla, concisa y clara, "
+                f"en dónde está el error en su código y cómo puede solucionarlo."
             )
 
             try:
@@ -73,23 +94,22 @@ def ejecutar_codigo(req: CodigoRequest):
 
             return {
                 "exito": False,
-                "salida": output,
-                "error": mensaje_error,
+                "salida": output if output else "Sin salida de pantalla.",
+                "error": detalle_problema,
                 "explicacion_ia": explicacion,
             }
 
-        # Si no hubo errores, retornar éxito directo sin llamar a la IA
-        mensaje_exito = "¡Excelente trabajo! Tu código se ejecutó correctamente."
+        # CASO 3: El código está bien y generó salida correctamente
         return {
             "exito": True,
-            "salida": output if output else "Ejecutado sin salida de texto.",
-            "mensaje": mensaje_exito,
+            "salida": output,
+            "mensaje": "¡Excelente trabajo! Tu código se ejecutó correctamente.",
             "explicacion_ia": None,
         }
 
     except Exception as e:
         return {
             "exito": False,
-            "salida": "Error de servidor",
-            "explicacion_ia": f"Ocurrió un problema en el backend: {str(e)}",
+            "salida": "Error de conexión",
+            "explicacion_ia": f"Ocurrió un problema en el servidor: {str(e)}",
         }
