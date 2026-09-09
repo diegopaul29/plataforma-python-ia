@@ -16,6 +16,7 @@
         #editor { flex: 2; }
         #output { flex: 1; background: #111; padding: 15px; border-top: 2px solid #3c3c3c; overflow-y: auto; font-family: monospace; }
         .ia-box { background: #3b1818; border-left: 4px solid #f44336; padding: 10px; margin-top: 10px; border-radius: 4px; font-family: sans-serif; white-space: pre-line; }
+        .exito-box { background: #1b381e; border-left: 4px solid #28a745; padding: 10px; margin-top: 10px; border-radius: 4px; font-family: sans-serif; color: #d4edda; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
 </head>
@@ -86,7 +87,10 @@
                 language: 'python',
                 theme: 'vs-dark',
                 lineNumbers: 'on',
-                automaticLayout: true
+                automaticLayout: true,
+                insertSpaces: true,
+                tabSize: 4,
+                trimAutoWhitespace: true
             });
         });
 
@@ -120,9 +124,13 @@
                 });
 
                 const data = await res.json();
-                consoleEl.innerText = data.salida || (data.error ? data.error : "Sin salida");
+                consoleEl.innerText = data.salida || (data.error ? data.error : "Sin salida de consola");
 
-                if (!data.exito && data.explicacion_ia) {
+                if (data.exito) {
+                    if (data.mensaje) {
+                        iaEl.innerHTML = `<div class="exito-box"><strong>🎉 Mensaje:</strong><br>${data.mensaje}</div>`;
+                    }
+                } else if (data.explicacion_ia) {
                     iaEl.innerHTML = `<div class="ia-box"><strong>🤖 Tutor IA:</strong><br>${data.explicacion_ia}</div>`;
                 }
             } catch (e) {
