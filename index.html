@@ -7,7 +7,7 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; display: flex; height: 100vh; background: #1e1e1e; color: #fff; }
-        #sidebar { width: 300px; background: #252526; border-right: 1px solid #3c3c3c; padding: 15px; overflow-y: auto; }
+        #sidebar { width: 320px; background: #252526; border-right: 1px solid #3c3c3c; padding: 15px; overflow-y: auto; }
         .item { padding: 10px; margin-bottom: 6px; background: #2d2d2d; border-radius: 4px; cursor: pointer; font-size: 13px; }
         .item:hover, .item.active { background: #007acc; }
         #main { flex: 1; display: flex; flex-direction: column; }
@@ -39,25 +39,44 @@
 
     <script>
         const ejercicios = [
-            { 
-                id: 1, 
-                t: "1. Número Positivo (if)", 
-                code: "# Ejercicio 1: Verifica si numero es mayor a 0\nnumero = 10\nif numero > 0:\n    print('Es positivo')" 
-            },
-            { 
-                id: 11, 
-                t: "11. Par o Impar (if-else)", 
-                code: "# Ejercicio 11: Par o Impar\nnumero = 7\nif numero % 2 == 0:\n    print('Par')\nelse:\n    print('Impar')" 
-            },
-            { 
-                id: 21, 
-                t: "21. Mayor de 3 (if anidado)", 
-                code: "# Ejercicio 21: Anidado\na = 10\nb = 20\nif a > 0:\n    if b > a:\n        print('B es mayor positivo')" 
-            }
+            // BÁSICOS (1 - 10)
+            { id: 1, t: "1. Número Positivo", code: "# INSTRUCCIÓN: Si la variable 'numero' es mayor a 0, imprime 'Es positivo'.\nnumero = 10\n\n# Escribe tu código aquí abajo:\nif numero > 0:\n    print('Es positivo')" },
+            { id: 2, t: "2. Mayoría de Edad", code: "# INSTRUCCIÓN: Si 'edad' es mayor o igual a 18, imprime 'Mayor de edad'.\nedad = 20\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 3, t: "3. Temperatura Alta", code: "# INSTRUCCIÓN: Si 'temp' es superior a 30, imprime 'Hace calor'.\ntemp = 35\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 4, t: "4. Contraseña Correcta", code: "# INSTRUCCIÓN: Si 'clave' es igual a '1234', imprime 'Acceso concedido'.\nclave = '1234'\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 5, t: "5. Calificación Aprobatoria", code: "# INSTRUCCIÓN: Si 'nota' es mayor o igual a 7, imprime 'Aprobado'.\nnota = 8\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 6, t: "6. Descuento Disponible", code: "# INSTRUCCIÓN: Si 'monto' es mayor a 100, imprime 'Aplica descuento'.\nmonto = 150\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 7, t: "7. Número Cero", code: "# INSTRUCCIÓN: Si 'num' es exactamente 0, imprime 'El número es cero'.\nnum = 0\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 8, t: "8. Sistema Encendido", code: "# INSTRUCCIÓN: Si 'activo' es True, imprime 'El sistema está activo'.\nactivo = True\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 9, t: "9. Alerta de Velocidad", code: "# INSTRUCCIÓN: Si 'velocidad' supera los 90, imprime 'Exceso de velocidad'.\nvelocidad = 95\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 10, t: "10. Lista No Vacía", code: "# INSTRUCCIÓN: Si 'elementos' tiene más de 0 elementos (usa len), imprime 'La lista tiene datos'.\nelementos = [1, 2, 3]\n\n# Escribe tu código aquí abajo:\n" },
+
+            // INTERMEDIOS (11 - 20)
+            { id: 11, t: "11. Par o Impar", code: "# INSTRUCCIÓN: Si 'num' es par imprime 'Par', de lo contrario imprime 'Impar'.\nnum = 7\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 12, t: "12. Positivo o Negativo", code: "# INSTRUCCIÓN: Si 'n' es mayor o igual a 0 imprime 'Positivo', sino 'Negativo'.\nn = -5\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 13, t: "13. Pase de Entrada", code: "# INSTRUCCIÓN: Si 'tiene_ticket' es True imprime 'Bienvenido', sino 'Acceso denegado'.\ntiene_ticket = False\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 14, t: "14. Comparar Dos Números", code: "# INSTRUCCIÓN: Imprime cuál de los dos números (a o b) es el mayor.\na = 15\nb = 20\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 15, t: "15. Validar Usuario", code: "# INSTRUCCIÓN: Si 'usuario' es 'admin' imprime 'Hola Admin', sino 'Hola Usuario'.\nusuario = 'invitado'\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 16, t: "16. Stock Disponible", code: "# INSTRUCCIÓN: Si 'stock' es mayor a 0 imprime 'Disponible', sino 'Agotado'.\nstock = 0\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 17, t: "17. Múltiplo de 5", code: "# INSTRUCCIÓN: Si 'num' es múltiplo de 5 imprime 'Múltiplo de 5', sino 'No es múltiplo'.\nnum = 25\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 18, t: "18. Clima Lluvioso", code: "# INSTRUCCIÓN: Si 'lloviendo' es True imprime 'Lleva sombrilla', sino 'Disfruta el día'.\nlloviendo = True\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 19, t: "19. Longitud de Texto", code: "# INSTRUCCIÓN: Si el texto tiene más de 5 caracteres imprime 'Texto largo', sino 'Texto corto'.\ntexto = 'Hola'\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 20, t: "20. Batería Baja", code: "# INSTRUCCIÓN: Si 'bateria' es menor o igual a 15 imprime 'Conectar cargador', sino 'Batería suficiente'.\nbateria = 12\n\n# Escribe tu código aquí abajo:\n" },
+
+            // AVANZADOS (21 - 30)
+            { id: 21, t: "21. Clasificar Edad", code: "# INSTRUCCIÓN: Clasifica según 'edad': menor a 12 'Niño', 12-17 'Joven', 18+ 'Adulto'.\nedad = 15\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 22, t: "22. Sistema de Calificaciones", code: "# INSTRUCCIÓN: Si nota >= 9 'Excelente', si nota >= 7 'Bueno', sino 'Insuficiente'.\nnota = 8.5\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 23, t: "23. Calculadora de Semáforo", code: "# INSTRUCCIÓN: Según 'color' ('verde', 'amarillo', 'rojo'), imprime la acción recomendada.\ncolor = 'amarillo'\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 24, t: "24. Triángulos por Lados", code: "# INSTRUCCIÓN: Dados a, b, c; imprime si es 'Equilátero' (3 iguales), 'Isósceles' (2 iguales) o 'Escaleno'.\na, b, c = 5, 5, 8\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 25, t: "25. Determinar Bisiesto", code: "# INSTRUCCIÓN: Si 'anio' es divisible por 4 y no por 100 (o divisible por 400), imprime 'Bisiesto'.\nanio = 2024\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 26, t: "26. Descuento por Categoria", code: "# INSTRUCCIÓN: Categoria 'A' (20% desc), 'B' (10% desc), cualquier otra sin descuento.\ncategoria = 'A'\nprecio = 100\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 27, t: "27. Rango de Números", code: "# INSTRUCCIÓN: Verifica si 'num' está entre 10 y 50 inclusive.\nnum = 30\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 28, t: "28. Autenticación Doble", code: "# INSTRUCCIÓN: Si usuario es 'admin' Y pin es 9999, imprime 'Acceso Total', sino 'Denegado'.\nusuario, pin = 'admin', 9999\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 29, t: "29. Estación del Año", code: "# INSTRUCCIÓN: Según el número de 'mes' (1 al 12), indica a qué estación pertenece.\nmes = 6\n\n# Escribe tu código aquí abajo:\n" },
+            { id: 30, t: "30. Calculadora IMC", code: "# INSTRUCCIÓN: Dado imc = peso / (altura**2), clasifica: <18.5 'Bajo peso', 18.5-24.9 'Normal', >=25 'Sobrepeso'.\npeso = 70\naltura = 1.75\n\n# Escribe tu código aquí abajo:\n" }
         ];
 
         let editor;
-        // Al usar "/ejecutar", toma automáticamente el mismo dominio donde esté desplegado
         const urlBackend = "/ejecutar";
 
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' }});
