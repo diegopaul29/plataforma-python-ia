@@ -34,18 +34,29 @@ class CodigoRequest(BaseModel):
 def sanitizar_codigo(codigo_raw: str) -> str:
     if not codigo_raw:
         return ""
-    # Reemplaza caracteres invisibles de sangría que Monaco genera (NBSP) por espacios estándar
     codigo = codigo_raw.replace("\xa0", " ").replace("\x00", "").replace("\r\n", "\n")
     codigo = codigo.replace("\t", "    ")
     return codigo
 
 
+def extraer_codigo_alumno(codigo_completo: str) -> str:
+    """
+    Separa el código escrito por el usuario del encabezado/plantilla inicial.
+    """
+    marcador = "# Escribe tu código aquí abajo:"
+    if marcador in codigo_completo:
+        partes = codigo_completo.split(marcador)
+        return partes[1].strip()
+    return codigo_completo.strip()
+
+
 @app.post("/ejecutar")
 def ejecutar_codigo(req: CodigoRequest):
     codigo_limpio = sanitizar_codigo(req.codigo)
+    codigo_alumno = extraer_codigo_alumno(codigo_limpio)
 
-    # 1. CASO: CÓDIGO VACÍO O SOLO ESPACIOS
-    if not codigo_limpio.strip():
+    # 1. CASO: EL ALUMNO NO HA ESCRITO NADA DEBAJO DEL COMENTARIO GUÍA
+    if not codigo_alumno:
         return {
             "exito": False,
             "salida": "(Consola vacía)",
@@ -53,7 +64,6 @@ def ejecutar_codigo(req: CodigoRequest):
             "explicacion_ia": None,
         }
 
-    # Redireccionar stdout y stderr para capturar la salida en memoria
     buffer_salida = io.StringIO()
     sys.stdout = buffer_salida
     sys.stderr = buffer_salida
@@ -63,13 +73,10 @@ def ejecutar_codigo(req: CodigoRequest):
     error_ocurrido = None
 
     try:
-        # Ejecutar el código Python directamente
         exec(codigo_limpio, entorno_global, entorno_local)
     except Exception:
-        # Capturar la traza del error si falla la sintaxis o ejecución
         error_ocurrido = traceback.format_exc()
     finally:
-        # Restaurar la salida estándar
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
 
@@ -101,19 +108,34 @@ def ejecutar_codigo(req: CodigoRequest):
             "explicacion_ia": explicacion,
         }
 
-    # 3. CASO: CÓDIGO CORRECTO CON IMPRESIÓN EN PANTALLA (print)
-    if salida_consola:
+    # 3. CASO: CÓDIGO VÁLIDO PERO SIN IMPRESIÓN (no hizo print)
+    if not salida_consola:
+        explicacion = "Tu código no tiene errores de sintaxis, pero no imprimió nada en la consola. Asegúrate de incluir la instrucción print() dentro de tu condición."
+
+        if ai_client:
+            prompt = (
+                f"El alumno escribió este código en Python:\n```python\n{codigo_limpio}\n```\n\n"
+                f"El código no arrojó errores pero tampoco mostró ningún resultado en pantalla.\n"
+                f"Explícale amablemente y en un párrafo corto en dónde debe agregar el print() para resolver la instrucción."
+            )
+            try:
+                ai_res = ai_client.models.generate_content(
+                    model="gemini-3.6-flash", contents=prompt
+                )
+                explicacion = ai_res.text
+            except Exception as ex_ia:
+                explicacion = f"Error de IA: {str(ex_ia)}"
+
         return {
-            "exito": True,
-            "salida": salida_consola,
-            "mensaje": "¡Excelente trabajo! Tu código se ejecutó correctamente.",
-            "explicacion_ia": None,
+            "exito": False,
+            "salida": "(Sin salida de pantalla)",
+            "explicacion_ia": explicacion,
         }
 
-    # 4. CASO: CÓDIGO VÁLIDO PERO SIN IMPRESIÓN
+    # 4. CASO: CÓDIGO CORRECTO CON SALIDA POR PANTALLA
     return {
         "exito": True,
-        "salida": "(El código se ejecutó con éxito pero no generó texto en pantalla)",
-        "mensaje": "El código es válido. Asegúrate de incluir la función print() para ver resultados en consola.",
+        "salida": salida_consola,
+        "mensaje": "¡Excelente trabajo! Tu código se ejecutó correctamente.",
         "explicacion_ia": None,
     }
