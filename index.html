@@ -114,7 +114,7 @@
         async function ejecutar() {
             const consoleEl = document.getElementById('consola');
             const iaEl = document.getElementById('ia');
-            consoleEl.innerText = "Ejecutando en la nube...";
+            consoleEl.innerText = "Ejecutando...";
             iaEl.innerHTML = "";
 
             try {
@@ -125,17 +125,22 @@
                 });
 
                 const data = await res.json();
-                consoleEl.innerText = data.salida || (data.error ? data.error : "Sin salida de consola");
 
                 if (data.mensaje_alerta) {
+                    consoleEl.innerText = "(Sin salida)";
                     iaEl.innerHTML = `<div class="alerta-box"><strong>⚠️ Atención:</strong><br>${data.mensaje_alerta}</div>`;
-                } else if (data.exito && data.mensaje) {
+                    return;
+                }
+
+                consoleEl.innerText = data.salida || "Sin salida de consola";
+
+                if (data.exito && data.mensaje) {
                     iaEl.innerHTML = `<div class="exito-box"><strong>🎉 Mensaje:</strong><br>${data.mensaje}</div>`;
                 } else if (!data.exito && data.explicacion_ia) {
                     iaEl.innerHTML = `<div class="ia-box"><strong>🤖 Tutor IA:</strong><br>${data.explicacion_ia}</div>`;
                 }
             } catch (e) {
-                consoleEl.innerText = "Error conectando al servidor backend nube.";
+                consoleEl.innerText = "Error conectando al servidor backend.";
             }
         }
     </script>

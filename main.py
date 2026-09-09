@@ -34,7 +34,7 @@ class CodigoRequest(BaseModel):
 def sanitizar_codigo(codigo_raw: str) -> str:
     if not codigo_raw:
         return ""
-    # Reemplaza espacios invisibles (NBSP) por espacios estándar
+    # Reemplaza caracteres invisibles de sangría que Monaco genera (NBSP) por espacios estándar
     codigo = codigo_raw.replace("\xa0", " ").replace("\x00", "").replace("\r\n", "\n")
     codigo = codigo.replace("\t", "    ")
     return codigo
@@ -44,16 +44,16 @@ def sanitizar_codigo(codigo_raw: str) -> str:
 def ejecutar_codigo(req: CodigoRequest):
     codigo_limpio = sanitizar_codigo(req.codigo)
 
-    # 1. CASO: CÓDIGO VACÍO
+    # 1. CASO: CÓDIGO VACÍO O SOLO ESPACIOS
     if not codigo_limpio.strip():
         return {
             "exito": False,
-            "salida": "Consola vacía.",
-            "mensaje_alerta": "Por favor, ingrese el código solicitado antes de ejecutar.",
+            "salida": "(Consola vacía)",
+            "mensaje_alerta": "ingrese el codigo solicitado",
             "explicacion_ia": None,
         }
 
-    # Redireccionar stdout y stderr para capturar la salida en memoria de forma segura
+    # Redireccionar stdout y stderr para capturar la salida en memoria
     buffer_salida = io.StringIO()
     sys.stdout = buffer_salida
     sys.stderr = buffer_salida
@@ -63,10 +63,10 @@ def ejecutar_codigo(req: CodigoRequest):
     error_ocurrido = None
 
     try:
-        # Ejecutar el código Python directamente en el servidor
+        # Ejecutar el código Python directamente
         exec(codigo_limpio, entorno_global, entorno_local)
     except Exception:
-        # Capturar la traza exacta del error si falla la sintaxis o ejecución
+        # Capturar la traza del error si falla la sintaxis o ejecución
         error_ocurrido = traceback.format_exc()
     finally:
         # Restaurar la salida estándar
@@ -75,7 +75,7 @@ def ejecutar_codigo(req: CodigoRequest):
 
     salida_consola = buffer_salida.getvalue().strip()
 
-    # 2. CASO: ERROR DE SINTAXIS O EJECUCIÓN EN PYTHON
+    # 2. CASO: ERROR DE SINTAXIS O EJECUCIÓN
     if error_ocurrido:
         explicacion = "Ocurrió un error al ejecutar tu código."
 
@@ -85,7 +85,7 @@ def ejecutar_codigo(req: CodigoRequest):
                 f"El alumno escribió este código:\n```python\n{codigo_limpio}\n```\n\n"
                 f"El intérprete de Python reportó este error:\n{error_ocurrido}\n\n"
                 f"Explícale en español, de forma muy concisa y clara en un solo párrafo, "
-                f"exactamente cuál es el error y cómo solucionarlo."
+                f"exactamente cuál es el error y en qué parte o línea está para que pueda solucionarlo."
             )
             try:
                 ai_res = ai_client.models.generate_content(
@@ -101,7 +101,7 @@ def ejecutar_codigo(req: CodigoRequest):
             "explicacion_ia": explicacion,
         }
 
-    # 3. CASO: CÓDIGO CORRECTO CON IMPRESIÓN PANTALLA (print)
+    # 3. CASO: CÓDIGO CORRECTO CON IMPRESIÓN EN PANTALLA (print)
     if salida_consola:
         return {
             "exito": True,
